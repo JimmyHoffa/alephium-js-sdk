@@ -17,31 +17,12 @@ npm ci
 
 ### Update schemas
 
-Typings can automatically be fetched and built from the [node](https://github.com/alephium/alephium) and [explorer-backend](https://github.com/alephium/explorer-backend) OpenAPIs using the following commands:
+One first needs to update the version number of `alephium` and `explorer-backend` in `package.json`. Kindly note that one needs to check the compatibility of both OpenAPI files manually.
+
+Typings can automatically generated using the following command:
 
 ```shell
-npm run fetch-schema:alephium -- -p <alephium-swagger-openapi-file-url>
-npm run fetch-schema:explorer -- -p <explorer-swagger-openapi-file-url>
-```
-
-#### Examples
-
-Fetching the latest schema of the testnet explorer-backend:
-
-```shell
-npm run fetch-schema:explorer -- -p https://testnet-backend.alephium.org/docs/explorer-backend-openapi.json
-```
-
-Fetching the latest schema of the locally running explorer-backend:
-
-```shell
-npm run fetch-schema:explorer -- -p http://localhost:9090/docs/explorer-backend-openapi.json
-```
-
-Fetch the latest schema of the locally running Alephium node:
-
-```shell
-npm run fetch-schema:alephium -- -p http://localhost:12973/docs/openapi.json
+npm run update-schemas
 ```
 
 ## Compile
