@@ -18,26 +18,19 @@ along with the library. If not, see <http://www.gnu.org/licenses/>.
 
 import { Transaction } from '../api/api-explorer'
 
-export const MONEY_SYMBOL = ['', 'K', 'M', 'B', 'T']
-export const QUINTILLION = 1000000000000000000
+const MONEY_SYMBOL = ['', 'K', 'M', 'B', 'T']
+const QUINTILLION = 1000000000000000000
+const NUM_OF_ZEROS_IN_QUINTILLION = 18
+
 export const BILLION = 1000000000
 
-const produceTrailingZeros = (numberOfZeros: number) => {
-  let zerosString = ''
-  let i = 0
-  while (i < numberOfZeros) {
-    zerosString += '0'
-    i++
-  }
+const produceZeros = (numberOfZeros: number): string => '0'.repeat(numberOfZeros)
 
-  return zerosString
-}
-
-export const getNumberOfTrailingZeros = (numberArray: string[]) => {
+const getNumberOfTrailingZeros = (numString: string) => {
   let numberOfZeros = 0
 
-  for (let i = numberArray.length - 1; i >= 0; i--) {
-    if (numberArray[i] === '0') {
+  for (let i = numString.length - 1; i >= 0; i--) {
+    if (numString[i] === '0') {
       numberOfZeros++
     } else {
       break
@@ -47,35 +40,50 @@ export const getNumberOfTrailingZeros = (numberArray: string[]) => {
   return numberOfZeros
 }
 
-export const removeTrailingZeros = (numString: string, minNumberOfDecimals: number) => {
-  const numberArray = numString.split('')
+const removeTrailingZeros = (numString: string, minNumberOfDecimals?: number) => {
+  const numberOfZeros = getNumberOfTrailingZeros(numString)
+  const numStringWithoutTrailingZeros = numString.substring(0, numString.length - numberOfZeros)
 
-  const numberOfZeros = getNumberOfTrailingZeros(numberArray)
+  if (!minNumberOfDecimals)
+    return numStringWithoutTrailingZeros.endsWith('.')
+      ? numStringWithoutTrailingZeros.slice(0, -1)
+      : numStringWithoutTrailingZeros
 
-  const numberArrayWithoutTrailingZeros = [...numberArray.slice(0, numberArray.length - numberOfZeros)]
+  if (minNumberOfDecimals < 0) throw 'minNumberOfDecimals should be positive'
 
-  if (minNumberOfDecimals && numberArrayWithoutTrailingZeros[numberArrayWithoutTrailingZeros.length - 1] === '.')
-    numberArrayWithoutTrailingZeros.push(produceTrailingZeros(minNumberOfDecimals))
+  const indexOfPoint = numStringWithoutTrailingZeros.indexOf('.')
+  if (indexOfPoint === -1) throw 'numString should contain decimal point'
 
-  return numberArrayWithoutTrailingZeros.join().replace(/,/g, '')
+  const numberOfDecimals = numStringWithoutTrailingZeros.length - 1 - indexOfPoint
+  return numberOfDecimals < minNumberOfDecimals
+    ? numStringWithoutTrailingZeros.concat(produceZeros(minNumberOfDecimals - numberOfDecimals))
+    : numStringWithoutTrailingZeros
 }
 
-export const abbreviateAmount = (baseNum: bigint, showFullPrecision = false, nbOfDecimalsToShow?: number): string => {
+export const formatAmountForDisplay = (
+  baseNum: bigint,
+  showFullPrecision = false,
+  nbOfDecimalsToShow?: number
+): string => {
   if (baseNum < BigInt(0)) return '???'
 
   // For abbreviation, we don't need full precision and can work with number
   const alphNum = Number(baseNum) / QUINTILLION
   const minNumberOfDecimals = alphNum >= 0.000005 && alphNum < 0.01 ? 3 : 2
-
-  if (showFullPrecision) {
-    const decimals = countDecimals(alphNum) === 1 ? 16 : 18 // Avoid precision issue edge case
-    return removeTrailingZeros(alphNum.toFixed(decimals), minNumberOfDecimals)
-  }
-
-  const tinyAmountsMaxNumberDecimals = 5
   const numberOfDecimalsToDisplay = nbOfDecimalsToShow || minNumberOfDecimals
 
+  if (showFullPrecision) {
+    const baseNumString = baseNum.toString()
+    const numNonDecimals = baseNumString.length - NUM_OF_ZEROS_IN_QUINTILLION
+    const alphNumString =
+      numNonDecimals > 0
+        ? baseNumString.substring(0, numNonDecimals).concat('.', baseNumString.substring(numNonDecimals))
+        : '0.'.concat(produceZeros(-numNonDecimals), baseNumString)
+    return removeTrailingZeros(alphNumString, numberOfDecimalsToDisplay)
+  }
+
   if (alphNum < 0.001) {
+    const tinyAmountsMaxNumberDecimals = 5
     return removeTrailingZeros(alphNum.toFixed(tinyAmountsMaxNumberDecimals), minNumberOfDecimals)
   } else if (alphNum <= 1000000) {
     return addApostrophe(removeTrailingZeros(alphNum.toFixed(numberOfDecimalsToDisplay), minNumberOfDecimals))
@@ -94,7 +102,7 @@ export const abbreviateAmount = (baseNum: bigint, showFullPrecision = false, nbO
   return scaled.toFixed(numberOfDecimalsToDisplay) + suffix
 }
 
-export const calAmountDelta = (t: Transaction, id: string) => {
+export const calAmountDelta = (t: Transaction, id: string): bigint => {
   if (!t.inputs || !t.outputs) {
     throw 'Missing transaction details'
   }
@@ -109,84 +117,20 @@ export const calAmountDelta = (t: Transaction, id: string) => {
   return outputAmount - inputAmount
 }
 
-export const countDecimals = (value: number) => {
-  if (Number.isInteger(value)) return 0
+export const convertAlphToSet = (amount: string): bigint => {
+  const amountNumber = Number(amount)
+  if (Number.isNaN(amountNumber) || amountNumber < 0 || amount.length === 0 || amount.includes('e'))
+    throw 'Invalid Alph amount'
+  if (amount === '0') return BigInt(0)
 
-  let str = value.toString()
-  if (str.startsWith('-')) str = str.substring(1)
+  const numberOfDecimals = amount.includes('.') ? amount.length - 1 - amount.indexOf('.') : 0
+  const numberOfZerosToAdd = NUM_OF_ZEROS_IN_QUINTILLION - numberOfDecimals
+  const cleanedAmount = amount.replace('.', '') + produceZeros(numberOfZerosToAdd)
 
-  if (str.indexOf('.') !== -1 && str.indexOf('e-') !== -1) {
-    return parseInt(str.split('e-')[1]) + str.split('e-')[0].split('.')[1].length || 0
-  } else if (str.indexOf('.') !== -1) {
-    return str.split('.')[1].length || 0
-  }
-  return parseInt(str.split('e-')[1]) || 0
+  return BigInt(cleanedAmount)
 }
 
-export const convertToQALPH = (amount: string): bigint => {
-  let cleanedAmount = amount
-
-  if (amount.includes('e')) {
-    cleanedAmount = convertScientificToFloatString(amount)
-  }
-
-  const numberOfDecimals = cleanedAmount.includes('.') ? cleanedAmount.length - 1 - cleanedAmount.indexOf('.') : 0
-  const numberOfZerosToAdd = 18 - numberOfDecimals
-  return BigInt(`${cleanedAmount.replace('.', '')}${produceTrailingZeros(numberOfZerosToAdd)}`)
-}
-
-export const convertScientificToFloatString = (scientificNumber: string): string => {
-  let newNumber = scientificNumber
-  const scientificNotation = scientificNumber.includes('e-')
-    ? 'e-'
-    : scientificNumber.includes('e+')
-    ? 'e+'
-    : scientificNumber.includes('e')
-    ? 'e'
-    : ''
-
-  if (scientificNumber.startsWith('-')) {
-    newNumber = newNumber.substring(1)
-  }
-
-  if (scientificNotation === 'e-') {
-    const positionOfE = newNumber.indexOf(scientificNotation)
-    const moveDotBy = Number(newNumber.substring(positionOfE + scientificNotation.length, newNumber.length))
-    const positionOfDot = newNumber.indexOf('.')
-    const amountWithoutEandDot = newNumber.substring(0, positionOfE).replace('.', '')
-    if (moveDotBy >= positionOfDot) {
-      const numberOfZeros = moveDotBy - (positionOfDot > -1 ? positionOfDot : 1)
-      newNumber = `0.${produceTrailingZeros(numberOfZeros)}${amountWithoutEandDot}`
-    } else {
-      const newPositionOfDot = positionOfDot - moveDotBy
-      newNumber = `${amountWithoutEandDot.substring(0, newPositionOfDot)}.${amountWithoutEandDot.substring(
-        newPositionOfDot
-      )}`
-    }
-  } else if (scientificNotation === 'e+' || scientificNotation === 'e') {
-    const positionOfE = newNumber.indexOf(scientificNotation)
-    const moveDotBy = Number(newNumber.substring(positionOfE + scientificNotation.length, newNumber.length))
-    const numberOfDecimals = newNumber.indexOf('.') > -1 ? positionOfE - newNumber.indexOf('.') - 1 : 0
-    const amountWithoutEandDot = newNumber.substring(0, positionOfE).replace('.', '')
-    if (numberOfDecimals <= moveDotBy) {
-      newNumber = `${amountWithoutEandDot}${produceTrailingZeros(moveDotBy - numberOfDecimals)}`
-    } else {
-      const positionOfDot = newNumber.indexOf('.')
-      const newPositionOfDot = positionOfDot + moveDotBy
-      newNumber = `${amountWithoutEandDot.substring(0, newPositionOfDot)}.${amountWithoutEandDot.substring(
-        newPositionOfDot
-      )}`
-    }
-  }
-
-  if (scientificNumber.startsWith('-')) {
-    newNumber = `-${newNumber}`
-  }
-
-  return newNumber
-}
-
-const addApostrophe = (numString: string) => {
+export const addApostrophe = (numString: string): string => {
   const integralPart = numString.split('.')[0]
 
   if (integralPart.length > 3) {
@@ -196,4 +140,17 @@ const addApostrophe = (numString: string) => {
   }
 
   return numString
+}
+
+export const convertSetToAlph = (amountInSet: bigint): string => {
+  const amountInSetStr = amountInSet.toString()
+
+  if (amountInSetStr === '0') return amountInSetStr
+
+  const positionForDot = amountInSetStr.length - NUM_OF_ZEROS_IN_QUINTILLION
+  const withDotAdded =
+    positionForDot > 0
+      ? amountInSetStr.substring(0, positionForDot) + '.' + amountInSetStr.substring(positionForDot)
+      : '0.' + produceZeros(NUM_OF_ZEROS_IN_QUINTILLION - amountInSetStr.length) + amountInSetStr
+  return removeTrailingZeros(withDotAdded)
 }

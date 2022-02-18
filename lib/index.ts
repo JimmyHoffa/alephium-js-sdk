@@ -20,5 +20,12 @@ export * from './utils'
 export * from './wallet'
 export * from './explorer'
 export * from './address'
-export * from './numbers'
+export {
+  formatAmountForDisplay,
+  calAmountDelta,
+  convertAlphToSet,
+  addApostrophe,
+  convertSetToAlph,
+  BILLION
+} from './numbers'
 export * from './constants'
