@@ -73,14 +73,14 @@ describe('clique', function () {
 
       await client.init(isMultiNodesClique)
       expect(client.clients.length).toBe(1)
-      expect(client.clients[0].baseUrl).toBe(client.baseUrl)
+      expect(client.clients[0].instance.defaults.baseURL).toBe(client.instance.defaults.baseURL)
     })
 
     it('should create multiple node clients', async () => {
       const isMultiNodesClique = true
 
       await client.init(isMultiNodesClique)
-      expect(client.clients[0].baseUrl).toBe('http://127.0.0.1:12973')
+      expect(client.clients[0].instance.defaults.baseURL).toBe('http://127.0.0.1:12973')
     })
 
     it("should return a websocket to the clique's node", async () => {

@@ -43,7 +43,7 @@ export class CliqueClient extends Api<null> {
       if (this.clique.nodes) {
         for (const node of this.clique.nodes) {
           const client = new NodeClient({
-            baseUrl: `http://${node.address}:${node.restPort}`
+            baseURL: `http://${node.address}:${node.restPort}`
           })
 
           this.clients.push(client)
@@ -51,7 +51,7 @@ export class CliqueClient extends Api<null> {
       }
     } else {
       const client = new NodeClient({
-        baseUrl: this.baseUrl
+        baseURL: this.instance.defaults.baseURL
       })
 
       this.clients.push(client)
@@ -59,9 +59,9 @@ export class CliqueClient extends Api<null> {
   }
 
   async selfClique() {
-    const res = await this.infos.getInfosSelfClique()
-
-    if (res.error) throw new Error(res.error.detail)
+    const res = await this.infos.getInfosSelfClique().catch((e) => {
+      throw new Error(e)
+    })
 
     return res
   }
@@ -72,9 +72,9 @@ export class CliqueClient extends Api<null> {
       throw new Error('Unknown error (no nodes in the clique)')
     }
 
-    const res = await this.addresses.getAddressesAddressGroup(address)
-
-    if (res.error) throw new Error(res.error.detail)
+    const res = await this.addresses.getAddressesAddressGroup(address).catch((e) => {
+      throw new Error(e)
+    })
 
     return res.data.group % this.clients.length
   }
