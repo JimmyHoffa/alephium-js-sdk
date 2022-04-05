@@ -65,17 +65,24 @@ export class Wallet {
   }
 }
 
-export const getPath = (addressIndex?: number) => {
+export type DerivationPathLevel = 'account' | 'change' | 'address_index'
+
+export const getPath = (level: DerivationPathLevel, levelNumber?: number) => {
   if (
-    addressIndex !== undefined &&
-    (addressIndex < 0 || !Number.isInteger(addressIndex) || addressIndex.toString().includes('e'))
+    levelNumber !== undefined &&
+    (levelNumber < 0 || !Number.isInteger(levelNumber) || levelNumber.toString().includes('e'))
   ) {
     throw new Error('Invalid address index path level')
   }
   // Being explicit: we always use coinType 1234 no matter the network.
   const coinType = "1234'"
+  const levelValue = levelNumber || '0'
 
-  return `m/44'/${coinType}/0'/0/${addressIndex || '0'}`
+  return {
+    account: `m/44'/${coinType}'/${levelValue}'/0/0`,
+    change: `m/44'/${coinType}'/0'/${levelValue}/0`,
+    address_index: `m/44'/${coinType}'/0'/0/${levelValue}`
+  }[level]
 }
 
 export const getWalletFromMnemonic = (mnemonic: string): Wallet => {
@@ -94,7 +101,7 @@ export type AddressAndKeys = {
 
 const deriveAddressAndKeys = (seed: Buffer, addressIndex?: number): AddressAndKeys => {
   const masterKey = bip32.fromSeed(seed)
-  const keyPair = masterKey.derivePath(getPath(addressIndex))
+  const keyPair = masterKey.derivePath(getPath('account', addressIndex))
 
   if (!keyPair.privateKey) throw new Error('Missing private key')
 
