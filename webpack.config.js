@@ -16,20 +16,30 @@ You should have received a copy of the GNU Lesser General Public License
 along with the library. If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { Buffer } from 'buffer/'
-import djb2 from '../lib/djb2'
+const webpack = require('webpack')
 
-describe('djb2', function () {
-  it('djb2', async () => {
-    function check(str: string, expected: number) {
-      const bytes = Buffer.from(str, 'utf8')
-      expect(djb2(bytes)).toEqual(expected)
+module.exports = {
+  mode: 'production',
+  entry: {
+    alephium: './dist/lib/index.js'
+  },
+  plugins: [new webpack.SourceMapDevToolPlugin({ filename: '[file].map' })],
+  resolve: {
+    extensions: ['.js'],
+    fallback: {
+      fs: false,
+      stream: require.resolve('stream-browserify'),
+      crypto: require.resolve('crypto-browserify')
     }
-
-    check('', 5381)
-    check('a', 177670)
-    check('z', 177695)
-    check('foo', 193491849)
-    check('bar', 193487034)
-  })
-})
+  },
+  output: {
+    filename: 'alephium.min.js',
+    library: {
+      name: 'alephium',
+      type: 'umd'
+    }
+  },
+  optimization: {
+    minimize: true
+  }
+}
